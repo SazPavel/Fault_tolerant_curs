@@ -1,0 +1,8 @@
+language: c
+
+install:
+    - sudo apt install libncursesw5-dev
+
+script:
+    - make
+    - make test
