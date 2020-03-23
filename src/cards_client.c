@@ -179,10 +179,16 @@ int client(int mode, int bot_mode)
                 msg = CLIENT_LOSE;
             if (response.type == SERVER_LOSE)
                 msg = CLIENT_WIN;
+            if (response.type == SERVER_CL_EXT)
+                msg = CLIENT_INT;
 
+            if (msg == CLIENT_INT)
+                game_result = -1;
+            if (msg == CLIENT_LOSE)
+                game_result = 0;
             switch(msg) {
+                case CLIENT_INT:
                 case CLIENT_LOSE:
-                    game_result = 0;
                 case CLIENT_WIN: {
                     change_game_mode(2, mode);
                     send_to_server(sd, &msg, (struct sockaddr*)&saddr, addr_size);

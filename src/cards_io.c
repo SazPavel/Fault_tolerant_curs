@@ -163,8 +163,10 @@ void draw_congratulations(int maxx)
         wmove(working_win, 3, 6 * 4 + 1);
     if(game_result == 1)
         wprintw(working_win, "%s", "You win");
-    else
+    else if (game_result == 0)
         wprintw(working_win, "%s", "You lose");
+    else if (game_result == -1)
+        wprintw(working_win, "%s", "Yout opponent is disconected");
 }
 
 /*

@@ -63,6 +63,7 @@
 #define SERVER_CARD 1
 #define SERVER_WIN 2
 #define SERVER_LOSE 3
+#define SERVER_CL_EXT 4
 // server states
 #define SS_FREE 0
 #define SS_BUSY 1

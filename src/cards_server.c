@@ -201,10 +201,17 @@ void* subserver(void *serv_index_ptr)
                     pthread_mutex_unlock(&stat_lock);
                 }
 
-                if (msg == CLIENT_EXIT || msg == CLIENT_INT)
-                    break;
                 if (msg == CLIENT_LOSE || msg == CLIENT_WIN)
                     if (!pass_flag) break;
+                if (msg == CLIENT_EXIT || msg == CLIENT_INT) {
+                    pthread_mutex_lock(&stat_lock);
+                    answer.type = SERVER_CL_EXT;
+                    serv[ind^1].breaking_news = serv[ind].breaking_news = 1;
+                    serv[ind^1].xmsg = serv[ind].xmsg = SERVER_CL_EXT;
+                    send_extra_message(ind, &answer);
+                    pthread_mutex_unlock(&stat_lock);
+                    break;
+                }
                 if (sendto(sd, &answer, sizeof(struct server_message),
                            MSG_CONFIRM, (struct sockaddr*)&caddr, addr_size) < 0) {
                     perror("sendto");
