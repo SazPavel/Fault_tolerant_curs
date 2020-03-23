@@ -57,6 +57,7 @@
 #define CLIENT_DRAW 5
 #define CLIENT_INT 6
 #define CLIENT_NONE 7
+#define CLIENT_READY 8
 // commands from server to client
 #define SERVER_ERROR -1
 #define SERVER_NONE 0

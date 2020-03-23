@@ -139,6 +139,8 @@ int client(int mode, int bot_mode)
     timeout.tv_usec = 0;
     if (mode == M_USR) start_graphic();
     addr_size = sizeof(saddr);
+    msg = CLIENT_READY;
+    msg = send_to_server(sd, &msg, (struct sockaddr*)&saddr, addr_size);
     while (!exit_flag) {
         FD_ZERO(&readset);
         FD_SET(sd, &readset);
