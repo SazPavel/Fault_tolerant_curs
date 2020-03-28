@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <stdarg.h>
 
 // client modes - user or AI
 #define M_USR 0
@@ -80,6 +81,13 @@
 #define BOT_LT19 2
 #define BOT_MOAR 3
 
+// fault tolerant stuff
+#define MAX_STRING_SIZE 1024
+#define NSERVERS 2
+#define SERVER_WRONG -1
+#define SERVER_SLEEPING 0
+#define SERVER_WORKING 1
+
 // struct for card
 struct card {
     int rank;
@@ -117,7 +125,9 @@ int handle_client_message(int, struct server_message *, int);
 void send_extra_message(int, struct server_message *);
 void* subserver(void *);
 int server(struct card *);
-int cards_server(const char *);
+int cards_server(const char *, int);
+int server_main(const char *);
+int server_log(const char *, ...);
 
 // client functions
 int send_to_server(int, int *, struct sockaddr *, unsigned int);

@@ -41,10 +41,16 @@ void deck_print(struct card *deck, int n)
     char ranks[10][4] = {"A", "K", "Q", "J", "10", "9", "8", "7", "6", "NIL"};
     char suits[4][4] = {"♥", "♦", "♣", "♠"};
     for (i = 0; i < n; i++)
-        printf("%s%2d %4s %4s  (%2d)%s\n",
-               (deck[i].suit) < 2 ? CRED : CNRM, i,
-               ranks[deck[i].rank], suits[deck[i].suit],
-               deck[i].value, CNRM);
+#ifdef PRINT_SCREEN
+        server_log("%s%2d %4s %4s  (%2d)%s\n",
+                   (deck[i].suit) < 2 ? CRED : CNRM, i,
+                   ranks[deck[i].rank], suits[deck[i].suit],
+                   deck[i].value, CNRM);
+#else
+        server_log("%2d %4s %4s (%2d)\n",
+                   i, ranks[deck[i].rank],
+                   suits[deck[i].suit], deck[i].value);
+#endif
 }
 
 // give a card to the player and remove it from the deck

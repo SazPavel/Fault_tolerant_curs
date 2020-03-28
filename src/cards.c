@@ -4,9 +4,10 @@ int main(int argc, char **argv)
 {
     if (argc < 2) {
         printf("Usage: cards mode \n");
-        printf("Modes: server [IPaddr] / ");
-        printf("client [IPaddr] / ");
-        printf("bot [mode] [IPaddr]\n");
+        printf("Modes: server [IPaddr]\n");
+        printf("       client [IPaddr]\n");
+        printf("       safeserver [IPaddr]\n");
+        printf("       bot [mode] [IPaddr]\n");
         printf("bot modes:\n");
         printf("\t0 - always pass\n");
         printf("\t1 - pass if score < 17\n");
@@ -14,8 +15,11 @@ int main(int argc, char **argv)
         printf("\t3 - never pass\n");
         exit(-1);
     }
+
+    if (!strcmp(argv[1], "safeserver"))
+        server_main((argc > 2) ? argv[2] : "127.0.0.1");
     if (!strcmp(argv[1], "server"))
-        cards_server((argc > 2) ? argv[2] : "127.0.0.1");
+        cards_server((argc > 2) ? argv[2] : "127.0.0.1", SERVER_WRONG);
     if (!strcmp(argv[1], "client"))
     {
         cards_client(M_USR, 0, (argc > 2) ? argv[2] : "127.0.0.1");

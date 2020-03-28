@@ -12,6 +12,8 @@ static struct card *deck = NULL;
 struct subserv serv[MAX_PLAYERS];
 static int players_count = 0;
 static const char *ip_addr;
+static char log_filename[MAX_STRING_SIZE];
+static FILE *log_file = NULL;
 
 static void sigusr_handler(int sig)
 {
@@ -21,7 +23,7 @@ static void sigusr_handler(int sig)
 static void sigint_handler(int sig)
 {
     int i;
-    printf("\nEXIT\n");
+    server_log("\nEXIT\n");
     exit_flag = 1;
 
     for (i = 0; i < MAX_PLAYERS; i++) {
@@ -32,20 +34,56 @@ static void sigint_handler(int sig)
     pthread_mutex_destroy(&stat_lock);
     pthread_mutex_destroy(&card_lock);
     free(deck);
+    fclose(log_file);
     exit(0);
 }
+
+int server_log(const char *format, ...)
+{
+    int retval;
+
+    va_list args;
+    va_start(args, format);
+
+#if defined (PRINT_FILE)
+    log_file = fopen(log_filename, "a");
+    if (log_file == NULL)
+        retval = -1;
+    else
+        retval = vfprintf(log_file, format, args);
+    fclose(log_file);
+#elif defined (PRINT_SCREEN)
+    retval = vprintf(format, args);
+#endif
+    va_end(args);
+    return retval;
+}
+
 
 // unused
 void serv_print(int ind)
 {
-    printf("\nSS %d:\n", ind);
-    printf("state =    %d\n", serv[ind].state);
-    printf("msg =      %d\n", serv[ind].msg);
-    printf("break =    %d\n", serv[ind].breaking_news);
-    printf("xmsg =     %d\n", serv[ind].xmsg);
-    printf("score =    %d\n", serv[ind].player_score);
-    printf("pass =     %d\n", serv[ind].pass_flag);
-    printf("\n");
+    server_log("\nSS %d:\n", ind);
+    server_log("state =    %d\n", serv[ind].state);
+    server_log("msg =      %d\n", serv[ind].msg);
+    server_log("break =    %d\n", serv[ind].breaking_news);
+    server_log("xmsg =     %d\n", serv[ind].xmsg);
+    server_log("score =    %d\n", serv[ind].player_score);
+    server_log("pass =     %d\n", serv[ind].pass_flag);
+    server_log("\n");
+}
+
+
+void serv_create_info()
+{
+    int i;
+
+    server_log("\n\nSERVER INFO:\n");
+    server_log("========================================\n");    
+    for (i = 0; i < MAX_PLAYERS; i++)
+        serv_print(i);
+    server_log("player count: %d\n", players_count);
+    server_log("========================================\n\n");
 }
 
 // create answer to client's message as struct server_message
@@ -61,7 +99,7 @@ int handle_client_message(int msg, struct server_message *answerptr, int ind)
             answer.type = SERVER_CARD;
             pthread_mutex_lock(&stat_lock);
             serv[ind].player_score += answer.card.value;
-            printf("player%d's total score: %d\n",
+            server_log("player%d's total score: %d\n",
                    ind, serv[ind].player_score);
             pthread_mutex_unlock(&stat_lock);
         } break;
@@ -93,7 +131,7 @@ int handle_client_message(int msg, struct server_message *answerptr, int ind)
 void send_extra_message(int ind, struct server_message *answer)
 {
     answer->type = serv[ind].xmsg;
-    printf("now %d's answer is %d\n", ind, answer->type);
+    server_log("now %d's answer is %d\n", ind, answer->type);
 }
 
 // subserver's pthread function
@@ -127,7 +165,7 @@ void* subserver(void *serv_index_ptr)
         pthread_mutex_lock(&stat_lock);
         serv[ind].state = SS_BUSY;
         msg = serv[ind].msg;
-        printf("%d recv'd %d\n", ind, msg);
+        server_log("%d recv'd %d\n", ind, msg);
         // create new socket
         sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         memset(&caddr, 0, sizeof(caddr));
@@ -153,20 +191,20 @@ void* subserver(void *serv_index_ptr)
         // first message sending
         sendto(sd, &answer, sizeof(answer), MSG_DONTWAIT,
                (struct sockaddr*)&(serv[ind].client), addr_size);
-        printf("sent:\n");
+        server_log("sent:\n");
         if (answer.type == SERVER_CARD)
             deck_print(&(answer.card), 1);
         else
-            printf("%d\n", answer.type);
+            server_log("%d\n", answer.type);
         fd_set readset;
         struct timeval timeout;
         fcntl(sd, F_SETFL, O_NONBLOCK);
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
         // this loop ends after exit message from client
         // because each subserver is created for one client
         while (1) {
             FD_ZERO(&readset);
+            timeout.tv_sec = 1;
+            timeout.tv_usec = 0;
             FD_SET(sd, &readset);
             if(select(sd + 1, &readset, NULL, NULL, &timeout) < 0) {
                 perror("select");
@@ -184,7 +222,7 @@ void* subserver(void *serv_index_ptr)
                 msg = handle_client_message(msg, &answer, ind);
                 pthread_mutex_unlock(&card_lock);
 
-                printf(" %d recv'd: %d\n", ind, msg);
+                server_log(" %d recv'd: %d\n", ind, msg);
                 // if received LOSE or WIN
                 // then it must be sent to all clients
                 pass_flag = 0;
@@ -218,12 +256,14 @@ void* subserver(void *serv_index_ptr)
                     break;
                 }
 
-                printf("sent:\n");
+                server_log("sent:\n");
                 if (answer.type == SERVER_CARD)
                     deck_print(&(answer.card), 1);
                 else
-                    printf("%d\n", answer.type);
+                    server_log("%d\n", answer.type);
             } // isset
+
+            serv_create_info();
 
             //if another client win or lose
             pthread_mutex_lock(&stat_lock);
@@ -244,11 +284,11 @@ void* subserver(void *serv_index_ptr)
         // close this subserver
         close(sd);
         pthread_mutex_lock(&stat_lock);
-        printf(" * Player%d ", ind);
-        if (serv[ind].xmsg == SERVER_WIN) printf("LOSE");
-        else if (serv[ind].xmsg == SERVER_LOSE) printf("WIN");
-        else printf("EXIT");
-        printf(" with score %d\n", serv[ind].player_score);
+        server_log(" * Player%d ", ind);
+        if (serv[ind].xmsg == SERVER_WIN) server_log("LOSE");
+        else if (serv[ind].xmsg == SERVER_LOSE) server_log("WIN");
+        else server_log("EXIT");
+        server_log(" with score %d\n", serv[ind].player_score);
 
         serv[ind].state = SS_FREE;
         serv[ind].sd = 0;
@@ -259,13 +299,13 @@ void* subserver(void *serv_index_ptr)
         serv[ind].player_score = 0;
         serv[ind].pass_flag = 0;
         players_count--;
-        printf("exited tid %d\n", ind);
+        server_log("exited tid %d\n", ind);
         // if last player exited, create deck again
         if (players_count == 0) {
             pthread_mutex_lock(&card_lock);
             deck_create(deck, DECK_SIZE);
             deck_shuffle(deck, DECK_SIZE);
-            printf("created deck\n");
+            server_log("created deck\n");
             pthread_mutex_unlock(&card_lock);
         }
         pthread_mutex_unlock(&stat_lock);
@@ -305,7 +345,7 @@ int server(struct card *deck)
     pthread_mutex_init(&stat_lock, NULL);
     pthread_mutex_init(&card_lock, NULL);
 
-    printf("Creating threads...\n");
+    server_log("Creating threads...\n");
     // init an array of subservers
     for (i = 0; i < MAX_PLAYERS; i++) {
         serv[i].state = SS_FREE;
@@ -324,7 +364,7 @@ int server(struct card *deck)
 
     found_free = -1;
 
-    printf("Waiting for connection...\n");
+    server_log("Waiting for connection...\n");
     while (1) {
         // receive the first message which will be redirected to pthread function
         recvfrom(sd, &msg, sizeof(msg), MSG_WAITALL,
@@ -345,7 +385,7 @@ int server(struct card *deck)
                 pthread_mutex_unlock(&stat_lock);
             }
         }
-        printf(" received %d -> sending it to %d\n", msg, found_free);
+        server_log(" received %d -> sending it to %d\n", msg, found_free);
         pthread_kill(tid[found_free], SIGUSR1);
         found_free = -1;
     }
@@ -353,13 +393,18 @@ int server(struct card *deck)
 }
 
 // main server function
-int cards_server(const char *argv)
+int cards_server(const char *argv, int init_mode)
 {
     struct sigaction sigint;
+
+    // init logging file
+    sprintf(log_filename, "server_%d_log.txt", getpid());
+
     deck = malloc(DECK_SIZE * sizeof(struct card));
 
-    printf("Starting server...\nPress Ctrl+C to exit\n");
-
+    server_log("Starting server...\nPress Ctrl+C to exit\n");
+    usleep(1000000);
+    server_log("server PPID == %d\n", getppid());
     // signal SIGINT handler
     sigint.sa_handler = sigint_handler;
     sigint.sa_flags = 0;
@@ -377,7 +422,14 @@ int cards_server(const char *argv)
     // set global address variale
     ip_addr = argv;
 
-    server(deck);
-
+    if (init_mode == SERVER_WORKING) {
+        server_log("serv mode is WORKING\n");
+        server(deck);
+    } else if (init_mode == SERVER_SLEEPING) {
+        server_log("serv mode is SLEEPING\n");
+    } else if (init_mode == SERVER_WRONG) {
+        printf("BE GONE! YOU SHALL NOT RUN THIS APPLICATION WITHOUT SAFE MODE!\n");
+        printf("RUN 'cards safeserver' INSTEAD AND MAY THE FORCE BE WITH YOU!\n");
+    }
     return 0;
 }
