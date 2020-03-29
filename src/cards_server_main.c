@@ -2,7 +2,6 @@
 
 int server_main(const char *argv)
 {
-	char commands[MAX_STRING_SIZE];
 	int init_mode = SERVER_WORKING;
 	int i;
 	pid_t pid;
@@ -18,7 +17,7 @@ int server_main(const char *argv)
 				exit(-1);
 			break;
 			case 0:
-				cards_server(argv, init_mode);
+				cards_server(argv, init_mode, i);
 				exit(0);
 			break;
 			default:

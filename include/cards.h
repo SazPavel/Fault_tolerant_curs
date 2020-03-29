@@ -87,6 +87,11 @@
 #define SERVER_WRONG -1
 #define SERVER_SLEEPING 0
 #define SERVER_WORKING 1
+#define SERVER_PORT 40000
+#define SYNC_DELAY_SEC 1
+#define SYNC_DELAY_USEC 500000
+#define MAX_SYNC_DELAY_SEC 6
+#define MAX_SYNC_DELAY_USEC 0
 
 // struct for card
 struct card {
@@ -115,6 +120,16 @@ struct server_message {
     int type;
 };
 
+// struct for sync msg which is sent
+// from the active server to waiting server
+struct sync_message {
+    struct subserv subservers[MAX_PLAYERS];
+    struct card deck[DECK_SIZE];
+    int server_mode;
+    int server_number;
+    int players_count;
+};
+
 // server functions
 void deck_shuffle(struct card *, int);
 void deck_create(struct card *, int);
@@ -125,7 +140,7 @@ int handle_client_message(int, struct server_message *, int);
 void send_extra_message(int, struct server_message *);
 void* subserver(void *);
 int server(struct card *);
-int cards_server(const char *, int);
+int cards_server(const char *, int, int);
 int server_main(const char *);
 int server_log(const char *, ...);
 

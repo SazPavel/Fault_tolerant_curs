@@ -33,6 +33,5 @@ lib: $(OBJECTS)
 	ar -rc $(LIBRARY) cards_server_main.o cards_server.o cards_deck.o cards_client.o cards_io.o
 clean:
 	rm -f *.o
-	rm -f *.txt
 test:
 	@cd tests && $(MAKE)

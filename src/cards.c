@@ -19,7 +19,7 @@ int main(int argc, char **argv)
     if (!strcmp(argv[1], "safeserver"))
         server_main((argc > 2) ? argv[2] : "127.0.0.1");
     if (!strcmp(argv[1], "server"))
-        cards_server((argc > 2) ? argv[2] : "127.0.0.1", SERVER_WRONG);
+        cards_server((argc > 2) ? argv[2] : "127.0.0.1", SERVER_WRONG, 0);
     if (!strcmp(argv[1], "client"))
     {
         cards_client(M_USR, 0, (argc > 2) ? argv[2] : "127.0.0.1");
