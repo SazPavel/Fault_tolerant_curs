@@ -83,14 +83,14 @@
 
 // fault tolerant stuff
 #define MAX_STRING_SIZE 1024
-#define NSERVERS 2
+#define NSERVERS 4
 #define SERVER_WRONG -1
 #define SERVER_SLEEPING 0
 #define SERVER_WORKING 1
 #define SERVER_PORT 40000
-#define SYNC_DELAY_SEC 1
+#define SYNC_DELAY_SEC 0
 #define SYNC_DELAY_USEC 500000
-#define MAX_SYNC_DELAY_SEC 6
+#define MAX_SYNC_DELAY_SEC 1
 #define MAX_SYNC_DELAY_USEC 0
 
 // struct for card
@@ -111,6 +111,7 @@ struct subserv {
     int xmsg;                     // endgame message
     int player_score;             // player's total score
     int pass_flag;                // flag for pass option
+    int cont_flag;                // =1 if this is a struct copied from failed server
 };
 
 // struct sent by server to client
@@ -128,6 +129,7 @@ struct sync_message {
     int server_mode;
     int server_number;
     int players_count;
+    int cont_flag;
 };
 
 // server functions
