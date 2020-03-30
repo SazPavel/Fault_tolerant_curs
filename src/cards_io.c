@@ -2,53 +2,58 @@
 
 /* cards_io.c contains client input and output functions */
 
-extern int cards_count;
-extern int graphic_mode;
-extern int cursor_coord;
-extern int game_result;
-extern struct card *my_cards;
-//main working window
-WINDOW *working_win;
-//player cards windows
-WINDOW *card_win[MAX_CARDS_CLIENT];
-
-int game_mode;
-
-char SCARDS[36][5] = {"🂱", "🃁", "🃑", "🂡",
-                      "🂾", "🃎", "🃞", "🂮",
-                      "🂽", "🃍", "🃝", "🂭",
-                      "🂻", "🃋", "🃛", "🂫",
-                      "🂺", "🃊", "🃚", "🂪",
-                      "🂹", "🃉", "🃙", "🂩",
-                      "🂸", "🃈", "🃘", "🂨",
-                      "🂷", "🃇", "🃗", "🂧",
-                      "🂶", "🃆", "🃖", "🂦",
-                     };
+extern int            cards_count;
+extern int            graphic_mode;
+extern int            cursor_coord;
+extern int            game_result;
+extern struct card   *my_cards;
+WINDOW               *working_win;
+WINDOW               *card_win[MAX_CARDS_CLIENT];
+int                   game_mode;
+char                  SCARDS[36][5] =
+                      {"🂱", "🃁", "🃑", "🂡",
+                       "🂾", "🃎", "🃞", "🂮",
+                       "🂽", "🃍", "🃝", "🂭",
+                       "🂻", "🃋", "🃛", "🂫",
+                       "🂺", "🃊", "🃚", "🂪",
+                       "🂹", "🃉", "🃙", "🂩",
+                       "🂸", "🃈", "🃘", "🂨",
+                       "🂷", "🃇", "🃗", "🂧",
+                       "🂶", "🃆", "🃖", "🂦",
+                      };
 
 //SIGWINCH handler
 void resize_handler(int sig)
 {
-    int i, maxx, maxy;
-    struct winsize size;
-    if(ioctl(fileno(stdout), TIOCGWINSZ, &size))
-    {
+    int               i;
+    int               maxx;
+    int               maxy;
+    struct winsize    size;
+
+    UNUSED(sig);
+
+    if(ioctl(fileno(stdout), TIOCGWINSZ, &size)) {
         return;
     }
+
     resize_term(size.ws_row, size.ws_col);
+
     for(i = 0; i < MAX_CARDS_CLIENT; i++)
         wresize(card_win[i], CARD_SIZE_Y, CARD_SIZE_X);
+
     maxy = size.ws_row;
     maxx = size.ws_col;
     wclear(working_win);
     wrefresh(working_win);
     refresh();
-    if(graphic_mode != 2)
-    {
+
+    if(graphic_mode != 2) {
         if(maxx < 60 || maxy < 20)
             graphic_mode = 1;
         else
             graphic_mode = 0;
     }
+
     //if card_win[4-7] outside of terminal
     if(maxy < 9)
         graphic_mode = 2;
@@ -58,7 +63,9 @@ void resize_handler(int sig)
 // Counting the player's scores
 int player_get_score()
 {
-    int i = 0, score = 0;
+    int    i = 0;
+    int    score = 0;
+
     for(;i < cards_count; i++)
         score += my_cards[i].value;
     return score;
@@ -78,13 +85,17 @@ void change_game_mode(int new_mode, int client_mode)
 {
     game_mode = new_mode;
     cursor_coord = 0;
-    if (client_mode == M_USR) draw_all();
+    if (client_mode == M_USR)
+        draw_all();
 }
 
 // Graphic initialization
 void start_graphic()
 {
-    int maxx, maxy;
+    int    maxx;
+    int    maxy;
+
+    // init ncurses screen parameters
     initscr();
     noecho();
     cbreak();
@@ -92,8 +103,7 @@ void start_graphic()
     nodelay(stdscr, TRUE);
     curs_set(0);
     getmaxyx(stdscr, maxy, maxx);
-    if(has_colors())
-    {
+    if(has_colors()) {
         graphic_mode = 0;
         start_color();
         init_pair(1, COLOR_RED, COLOR_WHITE);
@@ -103,8 +113,9 @@ void start_graphic()
         graphic_mode = 1;
     if(maxy < 9)
         graphic_mode = 2;
-    refresh();
+
     game_mode = 0;
+    refresh();
     create_field();
     create_cards_windows();
     draw_all();
@@ -113,12 +124,14 @@ void start_graphic()
 // Graphic deinitialization
 void stop_graphic()
 {
-    int i = 0;
+    int    i = 0;
+
     for(; i < MAX_CARDS_CLIENT; i++)
         delwin(card_win[i]);
     delwin(working_win);
     delwin(stdscr);
     endwin();
+
     /*If ncurses configurated with --disable-leaks and --with-valgrind
     this will be free memory*/
     //_nc_freeall();
@@ -127,14 +140,21 @@ void stop_graphic()
 // draw field, cards, buttons, player_score
 void draw_all()
 {
-    int i, maxx, maxy;
+    int    i;
+    int    maxx;
+    int    maxy;
+
     getmaxyx(working_win, maxy, maxx);
     draw_field();
+
     for(i = 0; i < cards_count; i++)
         card_draw(my_cards[i], i);
+
     buttons_draw(maxy);
+
     if(game_mode == 2)
         draw_congratulations(maxx);
+
     player_points_draw(maxx);
     wrefresh(working_win);
 }
@@ -144,11 +164,13 @@ maxx - size of window
 */
 void player_points_draw(int maxx)
 {
-    int player_point = player_get_score();
+    int    player_point = player_get_score();
+
     if(maxx >= 60)
         wmove(working_win, 1, (CARD_SIZE_X + 2) * 4);
     else
         wmove(working_win, 1, 6 * 4 + 1);
+
     wprintw(working_win, "%s %d", "Your points:", player_point);
 }
 
@@ -179,8 +201,7 @@ output - define corresponding to the selected appropriate command
 */
 int chose_func_exec(int command)
 {
-    switch(command)
-    {
+    switch(command) {
     case 1:
         return CLIENT_EXIT;
     case 2:
@@ -197,21 +218,22 @@ or CLIENT_NONE if not selected function
 */
 int reading_keystrokes()
 {
-    int ch;
+    int    ch;
+
     ch = getch();
-    switch(ch)
-    {
+
+    switch(ch) {
     case KEY_UP:
     case 'w':
         if(!game_mode)
             cursor_coord += cursor_coord < 2 ? 1 : -2;
-        break;
+    break;
 
     case 's':
     case KEY_DOWN:
         if(!game_mode)
             cursor_coord += cursor_coord > 0 ? -1 : 2;
-        break;
+    break;
 
     case KEY_ENTER:
     case '\n':
@@ -220,6 +242,7 @@ int reading_keystrokes()
     case ERR:
         return CLIENT_NONE;
     }
+
     draw_all();
     return CLIENT_NONE;
 }
@@ -239,9 +262,11 @@ void create_field()
 
 void create_cards_windows()
 {
-    int i, x, y;
-    for(i = 0; i < MAX_CARDS_CLIENT; i++)
-    {
+    int    i;
+    int    x;
+    int    y;
+
+    for(i = 0; i < MAX_CARDS_CLIENT; i++) {
         y = i < MAX_CARDS_CLIENT / 2 ? 1 : CARD_SIZE_Y+2;
         if(i < MAX_CARDS_CLIENT / 2)
             x = i * (CARD_SIZE_X + 1) + 1;
@@ -254,8 +279,7 @@ void create_cards_windows()
 /*maxy - size of window*/
 void buttons_draw(int maxy)
 {
-    if(!game_mode)
-    {
+    if(!game_mode) {
         button_take_draw(maxy);
         button_pass_draw(maxy);
     }
@@ -281,8 +305,7 @@ void button_exit_draw(int maxy)
 void button_pass_draw(int maxy)
 {
     wmove(working_win, maxy-3, 3);
-    if(cards_count < 2)
-    {
+    if(cards_count < 2) {
         wattron(working_win, A_DIM);
         wprintw(working_win, "%s", "pass");
         wattroff(working_win, A_DIM);
@@ -313,11 +336,9 @@ number_of_card - playing card number from 0 to 7
 void card_draw(struct card card, int number_of_card)
 {
     if(!graphic_mode)
-    {
         card_win_draw(card, number_of_card);
-    }else{
+    else
         card_unicode_draw(card, number_of_card);
-    }
 }
 
 /*
@@ -326,7 +347,10 @@ number_of_card - playing card number from 0 to 7
 */
 void card_unicode_draw(struct card card, int number_of_card)
 {
-    int x, y = 1, card_drawing_number = 0;
+    int    x = 0;
+    int    y = 1;
+    int    card_drawing_number = 0;
+
     x = number_of_card * 3 + 1;
     wmove(working_win, y, x);
     card_drawing_number = card.suit + card.rank*4;
@@ -344,35 +368,36 @@ void card_win_draw(struct card card, int number_of_card)
         wbkgd(card_win[number_of_card], COLOR_PAIR(1));
     if(card.suit == S_SPADES || card.suit == S_CLUBS)
         wbkgd(card_win[number_of_card], COLOR_PAIR(2));
+
     box(card_win[number_of_card], 0, 0);
     wmove(card_win[number_of_card], 1, 1);
-    switch(card.rank)
-    {
+
+    switch(card.rank) {
     case R_ACE:
         waddch(card_win[number_of_card], 'A');
         wmove(card_win[number_of_card], CARD_SIZE_Y-2, CARD_SIZE_X-2);
         waddch(card_win[number_of_card], 'A');
-        break;
+    break;
     case R_KING:
         waddch(card_win[number_of_card], 'K');
         wmove(card_win[number_of_card], CARD_SIZE_Y-2, CARD_SIZE_X-2);
         waddch(card_win[number_of_card], 'K');
-        break;
+    break;
     case R_QUEEN:
         waddch(card_win[number_of_card], 'Q');
         wmove(card_win[number_of_card], CARD_SIZE_Y-2, CARD_SIZE_X-2);
         waddch(card_win[number_of_card], 'Q');
-        break;
+    break;
     case R_JACK:
         waddch(card_win[number_of_card], 'J');
         wmove(card_win[number_of_card], CARD_SIZE_Y-2, CARD_SIZE_X-2);
         waddch(card_win[number_of_card], 'J');
-        break;
+    break;
     case R_10:
         wprintw(card_win[number_of_card], "%d", 14 - card.rank);
         wmove(card_win[number_of_card], CARD_SIZE_Y-2, CARD_SIZE_X-3);
         wprintw(card_win[number_of_card], "%d", 14 - card.rank);
-        break;
+    break;
     default:
         wprintw(card_win[number_of_card], "%d", 14 - card.rank);
         wmove(card_win[number_of_card], CARD_SIZE_Y-2, CARD_SIZE_X-2);
@@ -381,20 +406,20 @@ void card_win_draw(struct card card, int number_of_card)
 
     //print card suit
     wmove(card_win[number_of_card], CARD_SIZE_Y/2, CARD_SIZE_X/2-1);
-    switch(card.suit)
-    {
+
+    switch(card.suit) {
     case S_HEARTS:
         wprintw(card_win[number_of_card], "♥");
-        break;
+    break;
     case S_DIAMONDS:
         wprintw(card_win[number_of_card], "♦");
-        break;
+    break;
     case S_SPADES:
         wprintw(card_win[number_of_card], "♠");
-        break;
+    break;
     case S_CLUBS:
         wprintw(card_win[number_of_card], "♣");
-        break;
+    break;
     }
     wrefresh(card_win[number_of_card]);
 }

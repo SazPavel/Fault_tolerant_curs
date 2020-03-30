@@ -1,124 +1,42 @@
 #include "cards.h"
 
-/* cards_server.c contains logic & network & I/O server functions */
+/* cards_server.c contains logic & network server functions */
 
 // global variables (global for server only)
-static int sd;
-static int exit_flag = 0;
-static pthread_mutex_t stat_lock;
-static pthread_mutex_t card_lock;
-static pthread_t tid[MAX_PLAYERS];
-static struct card *deck = NULL;
-struct subserv serv[MAX_PLAYERS];
-static int players_count = 0;
-static const char *ip_addr;
-static char log_filename[MAX_STRING_SIZE];
-static FILE *log_file = NULL;
-static int server_number = -1;
-static int server_mode = SERVER_WRONG;
-static pthread_t sync_tid;
-static int last_response_time = 0;
-static int sync_sd_from = 0;
-static int sync_sd_to = 0;
-static struct sync_message server_params;
+int                    sd;
+int                    exit_flag = 0;
+pthread_mutex_t        stat_lock;
+pthread_mutex_t        card_lock;
+pthread_t              tid[MAX_PLAYERS];
+struct card           *deck = NULL;
+struct subserv         serv[MAX_PLAYERS];
+int                    players_count = 0;
+char                   ip_addr[MAX_STRING_SIZE] = {0};
+char                   log_filename[MAX_STRING_SIZE] = {0};
+FILE                  *log_file = NULL;
+int                    server_number = -1;
+int                    server_mode = SERVER_WRONG;
+pthread_t              sync_tid;
+int                    last_response_time = 0;
+int                    sync_sd_from = 0;
+int                    sync_sd_to = 0;
+struct sync_message    server_params;
 
-static void sigusr_handler(int sig)
-{
-    /*...*/
-}
-// signal SIGINT handler
-static void sigint_handler(int sig)
-{
-    int i;
-    server_log("\nEXIT\n");
-    exit_flag = 1;
-
-    for (i = 0; i < MAX_PLAYERS; i++) {
-        pthread_cancel(tid[i]);
-        pthread_join(tid[i], NULL);
-    }
-
-    shutdown(sd, SHUT_RDWR);
-    pthread_mutex_destroy(&stat_lock);
-    pthread_mutex_destroy(&card_lock);
-    free(deck);
-    fclose(log_file);
-
-    pthread_cancel(sync_tid);
-    pthread_join(sync_tid, NULL);
-    close(sd);
-    close(sync_sd_from);
-    close(sync_sd_to);
-
-    exit(0);
-}
-
-int server_log(const char *format, ...)
-{
-    int retval;
-    va_list args;
-    va_start(args, format);
-
-#if defined (PRINT_FILE)
-    log_file = fopen(log_filename, "a");
-    if (log_file == NULL)
-        retval = -1;
-    else
-        retval = vfprintf(log_file, format, args);
-    fclose(log_file);
-#elif defined (PRINT_SCREEN)
-    retval = vprintf(format, args);
-#endif
-
-    va_end(args);
-    return retval;
-}
-
-
-// print subserver info
-void serv_print(int ind)
-{
-    server_log("\nSS %d:\n", ind);
-    server_log("state =    %d\n", serv[ind].state);
-    server_log("msg   =    %d\n", serv[ind].msg);
-    server_log("break =    %d\n", serv[ind].breaking_news);
-    server_log("xmsg  =    %d\n", serv[ind].xmsg);
-    server_log("score =    %d\n", serv[ind].player_score);
-    server_log("pass  =    %d\n", serv[ind].pass_flag);
-    server_log("\n");
-}
-
-
-void serv_show_info(struct sync_message *sync_msg)
-{
-    int i;
-
-    server_log("\n\nSERVER INFO:\n");
-    server_log("========================================\n");    
-    for (i = 0; i < MAX_PLAYERS; i++) {
-        server_log("\nSS %d:\n", i);
-        server_log("state =    %d\n", sync_msg->subservers[i].state);
-        server_log("msg   =    %d\n", sync_msg->subservers[i].msg);
-        server_log("break =    %d\n", sync_msg->subservers[i].breaking_news);
-        server_log("xmsg  =    %d\n", sync_msg->subservers[i].xmsg);
-        server_log("score =    %d\n", sync_msg->subservers[i].player_score);
-        server_log("pass  =    %d\n", sync_msg->subservers[i].pass_flag);
-        server_log("\n");
-    }
-    server_log("player count: %d\n", sync_msg->players_count);
-    server_log("deck:\n");
-    deck_print(sync_msg->deck, 4);
-    server_log("========================================\n\n");
-}
+// SIGUSR handler from cards_server_special
+extern  void sigusr_handler(int sig);
+// SIGINT handler from cards_server_special
+extern void sigint_handler(int sig);
 
 // create answer to client's message as struct server_message
 int handle_client_message(int msg, struct server_message *answerptr, int ind)
 {
-    struct server_message answer;
-    int score1, score2, max;
+    struct server_message    answer;
+    int                      score1;
+    int                      score2;
+    int                      max;
 
     switch(msg) {
-        case CLIENT_TAKE: {
+        case CLIENT_TAKE:
             // give card to the player
             answer.card = deck_pop_card(deck, DECK_SIZE);
             answer.type = SERVER_CARD;
@@ -127,8 +45,8 @@ int handle_client_message(int msg, struct server_message *answerptr, int ind)
             server_log("player%d's total score: %d\n",
                    ind, serv[ind].player_score);
             pthread_mutex_unlock(&stat_lock);
-        } break;
-        case CLIENT_PASS: {
+        break;
+        case CLIENT_PASS:
             // if player passed
             pthread_mutex_lock(&stat_lock);
             if (serv[ind].pass_flag && serv[ind^1].pass_flag) {
@@ -136,18 +54,19 @@ int handle_client_message(int msg, struct server_message *answerptr, int ind)
                 score2 = serv[ind^1].player_score;
                 max = (score1 > score2) ? score1 : score2;
                 // if scores are equal, player 0 wins (no draw)
-                if (score1 == score2) max = serv[0].player_score;
+                if (score1 == score2)
+                    max = serv[0].player_score;
+
                 msg = (serv[ind].player_score == max) ?
                       CLIENT_WIN : CLIENT_LOSE;
             }
             serv[ind].pass_flag = 1;
             pthread_mutex_unlock(&stat_lock);
-        }
-        default: {
+        default:
             answer.card = (struct card){R_VOID, 0, 0};
             answer.type = SERVER_NONE;
-        }
     }
+
     *answerptr = answer;
     return msg;
 }
@@ -162,11 +81,16 @@ void send_extra_message(int ind, struct server_message *answer)
 // subserver's pthread function
 void* subserver(void *serv_index_ptr)
 {
-    struct sigaction sigusr;
-    int sd, ind, msg, pass_flag = 0;
-    unsigned int addr_size;
-    struct sockaddr_in caddr;
-    struct server_message answer;
+    struct sigaction         sigusr;
+    unsigned int             addr_size;
+    struct sockaddr_in       caddr;
+    struct server_message    answer;
+    fd_set                   readset;
+    struct timeval           timeout;
+    int                      sd;
+    int                      ind;
+    int                      msg;
+    int                      pass_flag = 0;
 
     // copy variables from serv declared in other function
     pthread_mutex_lock(&stat_lock);
@@ -225,9 +149,9 @@ void* subserver(void *serv_index_ptr)
             else
                 server_log("%d\n", answer.type);
         }
-        fd_set readset;
-        struct timeval timeout;
+
         fcntl(sd, F_SETFL, O_NONBLOCK);
+
         // this loop ends after exit message from client
         // because each subserver is created for one client
         while (1) {
@@ -292,9 +216,7 @@ void* subserver(void *serv_index_ptr)
                     server_log("%d\n", answer.type);
             } // isset
 
-            //serv_create_info();
-
-            //if another client win or lose
+            //if another client wins or loses
             pthread_mutex_lock(&stat_lock);
             if(serv[ind].breaking_news == 1)
             {
@@ -305,8 +227,6 @@ void* subserver(void *serv_index_ptr)
                 pthread_mutex_unlock(&stat_lock);
                 break;
             }
-
-
             if (serv[ind].cont_flag == 1)
                 serv[ind].cont_flag = 0;
             pthread_mutex_unlock(&stat_lock);
@@ -314,13 +234,18 @@ void* subserver(void *serv_index_ptr)
             // delay used to avoid 100% CPU load
             usleep(1000);
         }
+
         // close this subserver
         close(sd);
         pthread_mutex_lock(&stat_lock);
         server_log(" * Player%d ", ind);
-        if (serv[ind].xmsg == SERVER_WIN) server_log("LOSE");
-        else if (serv[ind].xmsg == SERVER_LOSE) server_log("WIN");
-        else server_log("EXIT");
+        if (serv[ind].xmsg == SERVER_WIN)
+            server_log("LOSE");
+        else if (serv[ind].xmsg == SERVER_LOSE)
+            server_log("WIN");
+        else
+            server_log("EXIT");
+
         server_log(" with score %d\n", serv[ind].player_score);
 
         serv[ind].state = SS_FREE;
@@ -333,6 +258,7 @@ void* subserver(void *serv_index_ptr)
         serv[ind].pass_flag = 0;
         players_count--;
         server_log("exited tid %d\n", ind);
+
         // if last player exited, create deck again
         if (players_count == 0) {
             pthread_mutex_lock(&card_lock);
@@ -347,13 +273,14 @@ void* subserver(void *serv_index_ptr)
 }
 
 // socket functions are here
-int server(struct card *deck)
+int server()
 {
-    struct sockaddr_in saddr, caddr;
-    unsigned int addr_size;
-    int msg = -1;
-    int i;
-    int found_free;
+    struct sockaddr_in    saddr;
+    struct sockaddr_in    caddr;
+    unsigned int          addr_size;
+    int                   msg = -1;
+    int                   i;
+    int                   found_free;
 
     // init all network stuff
     sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -361,6 +288,7 @@ int server(struct card *deck)
         perror("socket");
         return -1;
     }
+
     memset(&saddr, 0, sizeof(saddr));
     memset(&caddr, 0, sizeof(caddr));
 
@@ -405,7 +333,8 @@ int server(struct card *deck)
         // receive the first message which will be redirected to pthread function
         recvfrom(sd, &msg, sizeof(msg), MSG_WAITALL,
                  (struct sockaddr*)&caddr, &addr_size);
-        if (msg == CLIENT_EXIT || msg == CLIENT_INT) continue;
+        if (msg == CLIENT_EXIT || msg == CLIENT_INT)
+            continue;
         // while no threads are available
         while (found_free == -1) {
             usleep(10000);
@@ -428,169 +357,17 @@ int server(struct card *deck)
     return 0;
 }
 
-// server function for creation of the sync info
-// pthread mutex must be locked inside this function
-int server_sync_create_info(struct sync_message *sync_msg)
-{
-    pthread_mutex_lock(&stat_lock);
-    pthread_mutex_lock(&card_lock);
-
-    sync_msg->players_count = players_count;
-    sync_msg->server_number = server_number;
-    sync_msg->server_mode = server_mode;
-    memcpy((sync_msg->subservers), serv, MAX_PLAYERS * sizeof(struct subserv));
-    memcpy((sync_msg->deck), deck, DECK_SIZE * sizeof(struct card));
-
-    pthread_mutex_unlock(&card_lock);
-    pthread_mutex_unlock(&stat_lock);
-
-    return 0;
-}
-
-// server function which updates server variables
-// according to sync info parameters
-// pthread mutex must be locked inside this function
-int server_sync_update_info(struct sync_message *sync_msg)
-{
-    pthread_mutex_lock(&stat_lock);
-    pthread_mutex_lock(&card_lock);
-
-    memcpy(&server_params, sync_msg, sizeof(struct sync_message));
-
-    players_count = sync_msg->players_count;
-    //server_number = sync_msg->server_number;
-    //server_mode = sync_msg->server_mode;
-    memcpy(serv, &(sync_msg->subservers), MAX_PLAYERS * sizeof(struct subserv));
-    memcpy(deck, &(sync_msg->deck), DECK_SIZE * sizeof(struct card));
-
-
-    pthread_mutex_unlock(&card_lock);
-    pthread_mutex_unlock(&stat_lock);
-
-    return 0;
-}
-
-// server pthread function for sync message processing
-void *server_sync()
-{
-    fd_set readset;
-    struct timeval timeout;
-    struct sync_message sync_msg;
-    struct sockaddr_in saddr_from;
-    struct sockaddr_in saddr_to;
-    unsigned int addr_size = sizeof(struct sockaddr_in);
-    int ret;
-    int i;
-
-    // init endpoint parameters
-    memset(&saddr_from, 0, addr_size);
-    //memset(&caddr_from, 0, addr_size);
-    memset(&saddr_to, 0, addr_size);
-    //memset(&caddr_to, 0, addr_size);
-
-    saddr_from.sin_family = AF_INET;
-    saddr_from.sin_addr.s_addr = inet_addr(ip_addr);
-    saddr_from.sin_port = htons(SERVER_PORT + server_number);
- 
-    saddr_to.sin_family = AF_INET;
-    saddr_to.sin_addr.s_addr = inet_addr(ip_addr);
-    saddr_to.sin_port = htons(SERVER_PORT + (server_number  + 1));
-
-
-    sync_sd_from = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sync_sd_from < 0) {
-        perror("sync socket from");
-        return NULL;
-    }
-    sync_sd_to = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (sync_sd_to < 0) {
-        perror("sync socket to");
-        return NULL;
-    }
-
-    if (bind(sync_sd_from, (struct sockaddr*)&saddr_from, addr_size) < 0)
-    {
-        perror("sync bind from");
-        return NULL;
-    }
-
-    fcntl(sync_sd_from, F_SETFL, O_NONBLOCK);
-    fcntl(sync_sd_to, F_SETFL, O_NONBLOCK);
-
-    server_log("socket FROM: sd %d  port %d\n",
-               sync_sd_from, ntohs(saddr_from.sin_port));
-    server_log("socket TO: sd %d  port %d\n",
-               sync_sd_to, ntohs(saddr_to.sin_port));
-
-    while (1)
-    {
-        FD_ZERO(&readset);
-        timeout.tv_sec = SYNC_DELAY_SEC;
-        timeout.tv_usec = SYNC_DELAY_USEC;
-        FD_SET(sync_sd_from, &readset);
-
-        if(select(0, NULL, NULL, NULL, &timeout) < 0) {
-            perror("select");
-            break;
-        }
-
-        if (server_mode == SERVER_SLEEPING)
-        {
-            ret = recvfrom(sync_sd_from, &sync_msg, sizeof(sync_msg),
-                           MSG_DONTWAIT, (struct sockaddr*)&saddr_from, &addr_size);
-            if (ret <= 0)
-            {
-                last_response_time += (SYNC_DELAY_SEC * 1000000 + SYNC_DELAY_USEC);
-                server_log("no message received; set time to %d usec\n", last_response_time);
-                // it seems active server is not working
-                // so this server must become the working server
-                if (last_response_time > MAX_SYNC_DELAY_SEC * 1000000 + MAX_SYNC_DELAY_USEC) {
-                    for (i = 0; i < MAX_PLAYERS; i++) {
-                        server_params.subservers[i].cont_flag = 1;
-                    }
-                    server_params.cont_flag = 1;
-                    server_mode = SERVER_WORKING;
-                }
-            } else {
-                //server_log("recv'd %d bytes from sync sd; set time to 0 usec\n", ret);
-                last_response_time = 0;
-                server_sync_update_info(&sync_msg);
-
-                //server_log("***RCVD:\n");
-                //serv_show_info(&server_params);
-            }
-        }
-
-        // send sync message to the next server
-        if (server_number < NSERVERS - 1) {
-            server_sync_create_info(&sync_msg);
-            ret = sendto(sync_sd_to, &sync_msg, sizeof(sync_msg), 0,
-                         (struct sockaddr*)&saddr_to, addr_size);
-            if (ret < 0)
-                perror("sendto");
-            //server_log("sent %d bytes to sync sd\n", ret);
-
-            //server_log("***SENT:\n");
-            //serv_show_info(&sync_msg);
-
-        }
-
-    }
-    return NULL;
-}
-
 // main server function
 int cards_server(const char *argv, int init_mode, int number)
 {
-    struct sigaction sigint;
-    int i;
+    struct sigaction    sigint;
+    int                 i;
 
     // init global params
     server_number = number;
     server_mode = init_mode;
     sprintf(log_filename, "server_%d_log.txt", server_number);
-    ip_addr = argv;
-
+    memcpy(ip_addr, argv, strlen(argv));
 
     if (server_mode == SERVER_WORKING) {
         server_log("serv mode is WORKING\n");
@@ -630,7 +407,6 @@ int cards_server(const char *argv, int init_mode, int number)
     deck_shuffle(deck, DECK_SIZE);
     //deck_print(deck, DECK_SIZE);
 
-
     // init server params structure
     memcpy(server_params.deck, deck, DECK_SIZE * sizeof(struct card));
     for (i = 0; i < MAX_PLAYERS; i++) {
@@ -656,25 +432,16 @@ int cards_server(const char *argv, int init_mode, int number)
     pthread_mutex_init(&card_lock, NULL);
     pthread_create(&sync_tid, NULL, server_sync, NULL);
 
-
-
-    // in this loop the sleeping server should process
-    // sync packets from the working server and
-    // update its subservers accordingly.
-    // If no response received for the certain amount of time
-    // the sleeping server will change its mode to SERVER_WORKING
-    while (1)
-    {
+    // wait for the mode to change
+    // (mode can be changed in a pthread sync function)
+    while (1) {
         if (server_mode == SERVER_WORKING) {
-            server(deck);
+            server();
             break;
         }
 
+        // delay used to avoid 100% CPU load
         usleep(1000);
-
-
     }
-
-
     return 0;
 }

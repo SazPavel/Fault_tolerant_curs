@@ -3,6 +3,7 @@
 
 /* cards.h contains all defines, includes and function headers */
 
+// all needed includes
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,114 +23,116 @@
 #include <stdarg.h>
 
 // client modes - user or AI
-#define M_USR 0
-#define M_BOT 1
+#define M_USR                          0
+#define M_BOT                          1
 // our port number
-#define PORT 2121
+#define PORT                           2121
 // deck size - 36 cards (russian deck)
-#define DECK_SIZE 36
+#define DECK_SIZE                      36
 // max cards per client - 8
-#define MAX_CARDS_CLIENT 8
+#define MAX_CARDS_CLIENT               8
 // max players - 2
-#define MAX_PLAYERS 2
+#define MAX_PLAYERS                    2
 // card ranks
-#define R_ACE 0
-#define R_KING 1
-#define R_QUEEN 2
-#define R_JACK 3
-#define R_10 4
-#define R_9 5
-#define R_8 6
-#define R_7 7
-#define R_6 8
-#define R_VOID 9
+#define R_ACE                          0
+#define R_KING                         1
+#define R_QUEEN                        2
+#define R_JACK                         3
+#define R_10                           4
+#define R_9                            5
+#define R_8                            6
+#define R_7                            7
+#define R_6                            8
+#define R_VOID                         9
 // card suits
-#define S_HEARTS 0
-#define S_DIAMONDS 1
-#define S_CLUBS 2
-#define S_SPADES 3
+#define S_HEARTS                       0
+#define S_DIAMONDS                     1
+#define S_CLUBS                        2
+#define S_SPADES                       3
 // commands from client to server
-#define CLIENT_ERROR -1
-#define CLIENT_EXIT 0
-#define CLIENT_TAKE 1
-#define CLIENT_PASS 2
-#define CLIENT_LOSE 3
-#define CLIENT_WIN 4
-#define CLIENT_DRAW 5
-#define CLIENT_INT 6
-#define CLIENT_NONE 7
-#define CLIENT_READY 8
+#define CLIENT_ERROR                  -1
+#define CLIENT_EXIT                    0
+#define CLIENT_TAKE                    1
+#define CLIENT_PASS                    2
+#define CLIENT_LOSE                    3
+#define CLIENT_WIN                     4
+#define CLIENT_DRAW                    5
+#define CLIENT_INT                     6
+#define CLIENT_NONE                    7
+#define CLIENT_READY                   8
 // commands from server to client
-#define SERVER_ERROR -1
-#define SERVER_NONE 0
-#define SERVER_CARD 1
-#define SERVER_WIN 2
-#define SERVER_LOSE 3
-#define SERVER_CL_EXT 4
+#define SERVER_ERROR                  -1
+#define SERVER_NONE                    0
+#define SERVER_CARD                    1
+#define SERVER_WIN                     2
+#define SERVER_LOSE                    3
+#define SERVER_CL_EXT                  4
 // server states
-#define SS_FREE 0
-#define SS_BUSY 1
+#define SS_FREE                        0
+#define SS_BUSY                        1
 // color codes used by server
-#define CNRM "\x1B[0m"
-#define CRED "\x1B[31m"
+#define CNRM                           "\x1B[0m"
+#define CRED                           "\x1B[31m"
 // ncurses card size
-#define CARD_SIZE_Y 7
-#define CARD_SIZE_X 8
+#define CARD_SIZE_Y                    7
+#define CARD_SIZE_X                    8
 // bot modes
-#define BOT_PASS 0
-#define BOT_LT17 1
-#define BOT_LT19 2
-#define BOT_MOAR 3
-
+#define BOT_PASS                       0
+#define BOT_LT17                       1
+#define BOT_LT19                       2
+#define BOT_MOAR                       3
 // fault tolerant stuff
-#define MAX_STRING_SIZE 1024
-#define NSERVERS 4
-#define SERVER_WRONG -1
-#define SERVER_SLEEPING 0
-#define SERVER_WORKING 1
-#define SERVER_PORT 40000
-#define SYNC_DELAY_SEC 0
-#define SYNC_DELAY_USEC 500000
-#define MAX_SYNC_DELAY_SEC 1
-#define MAX_SYNC_DELAY_USEC 0
+#define MAX_STRING_SIZE                1024
+#define NSERVERS                       4
+#define SERVER_WRONG                  -1
+#define SERVER_SLEEPING                0
+#define SERVER_WORKING                 1
+#define SERVER_PORT                    40000
+#define SYNC_DELAY_SEC                 0
+#define SYNC_DELAY_USEC                500000
+#define MAX_SYNC_DELAY_SEC             1
+#define MAX_SYNC_DELAY_USEC            0
+
+// macro for suppressing -Wunused warning
+#define UNUSED(x) (void)(x)
 
 // struct for card
 struct card {
-    int rank;
-    int value;
-    int suit;
+    int    rank;
+    int    value;
+    int    suit;
 };
 
 // struct for subserver
 struct subserv {
-    int sd;                       // subserver socket descriptor
-    int ind;                      // number (0 or 1)
-    int state;                    // free of busy
-    int msg;                      // message (needed for the first sendto)
-    struct sockaddr_in client;    // client address
-    int breaking_news;            // endgame condition flag
-    int xmsg;                     // endgame message
-    int player_score;             // player's total score
-    int pass_flag;                // flag for pass option
-    int cont_flag;                // =1 if this is a struct copied from failed server
+    struct sockaddr_in    client;        // client address
+    int                   sd;            // subserver socket descriptor
+    int                   ind;           // number (0 or 1)
+    int                   state;         // free of busy
+    int                   msg;           // message (needed for the first sendto)
+    int                   breaking_news; // endgame condition flag
+    int                   xmsg;          // endgame message
+    int                   player_score;  // player's total score
+    int                   pass_flag;     // flag for pass option
+    int                   cont_flag;     // =1 if this is a struct copied from failed server
 };
 
 // struct sent by server to client
 // contains card and type of message
 struct server_message {
-    struct card card;
-    int type;
+    struct card    card;
+    int            type;
 };
 
 // struct for sync msg which is sent
 // from the active server to waiting server
 struct sync_message {
-    struct subserv subservers[MAX_PLAYERS];
-    struct card deck[DECK_SIZE];
-    int server_mode;
-    int server_number;
-    int players_count;
-    int cont_flag;
+    struct subserv    subservers[MAX_PLAYERS];
+    struct card       deck[DECK_SIZE];
+    int               server_mode;
+    int               server_number;
+    int               players_count;
+    int               cont_flag;
 };
 
 // server functions
@@ -141,10 +144,15 @@ void serv_print(int);
 int handle_client_message(int, struct server_message *, int);
 void send_extra_message(int, struct server_message *);
 void* subserver(void *);
-int server(struct card *);
+int server();
 int cards_server(const char *, int, int);
 int server_main(const char *);
 int server_log(const char *, ...);
+
+// server sync functions
+int server_sync_create_info(struct sync_message *);
+int server_sync_update_info(struct sync_message *);
+void *server_sync();
 
 // client functions
 int send_to_server(int, int *, struct sockaddr *, unsigned int);
@@ -156,7 +164,7 @@ int check_game_conditions(struct card *, int, int);
 int client(int, int);
 int cards_client(int, int, const char *);
 
-//cards_io
+//cards_io functions
 void resize_handler();
 int player_get_score();
 void start_graphic();
