@@ -91,6 +91,7 @@ void* subserver(void *serv_index_ptr)
     int                      ind;
     int                      msg;
     int                      pass_flag = 0;
+    int 					 ping_delay = 21;
 
     // copy variables from serv declared in other function
     pthread_mutex_lock(&stat_lock);
@@ -170,12 +171,12 @@ void* subserver(void *serv_index_ptr)
                     perror("recvfrom");
                     break;
                 }
-
+                ping_delay = 21;
                 pthread_mutex_lock(&card_lock);
                 msg = handle_client_message(msg, &answer, ind);
                 pthread_mutex_unlock(&card_lock);
-
-                server_log(" %d recv'd: %d\n", ind, msg);
+                if (msg != CLIENT_NONE)
+                	server_log(" %d recv'd: %d\n", ind, msg);
                 // if received LOSE or WIN
                 // then it must be sent to all clients
                 pass_flag = 0;
@@ -209,12 +210,26 @@ void* subserver(void *serv_index_ptr)
                     break;
                 }
 
-                server_log("sent:\n");
-                if (answer.type == SERVER_CARD)
-                    deck_print(&(answer.card), 1);
-                else
-                    server_log("%d\n", answer.type);
-            } // isset
+                if (msg != CLIENT_NONE)
+                {
+	                server_log("sent:\n");
+	                if (answer.type == SERVER_CARD)
+	                    deck_print(&(answer.card), 1);
+	                else
+	                    server_log("%d\n", answer.type);
+	            }
+            }else{ // isset
+            	ping_delay -= 1;
+            	if (ping_delay == 0)
+            	{
+                    pthread_mutex_lock(&stat_lock);
+                    answer.type = SERVER_CL_EXT;
+                    serv[ind^1].breaking_news = serv[ind].breaking_news = 1;
+                    serv[ind^1].xmsg = serv[ind].xmsg = SERVER_CL_EXT;
+                    send_extra_message(ind, &answer);
+                    pthread_mutex_unlock(&stat_lock);
+            	}
+            }
 
             //if another client wins or loses
             pthread_mutex_lock(&stat_lock);
