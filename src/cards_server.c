@@ -91,7 +91,7 @@ void* subserver(void *serv_index_ptr)
     int                      ind;
     int                      msg;
     int                      pass_flag = 0;
-    int 					 ping_delay = 21;
+    int 					 ping_delay = 3;
 
     // copy variables from serv declared in other function
     pthread_mutex_lock(&stat_lock);
@@ -171,7 +171,7 @@ void* subserver(void *serv_index_ptr)
                     perror("recvfrom");
                     break;
                 }
-                ping_delay = 21;
+                ping_delay = 3;
                 pthread_mutex_lock(&card_lock);
                 msg = handle_client_message(msg, &answer, ind);
                 pthread_mutex_unlock(&card_lock);
