@@ -145,7 +145,7 @@ int client(int mode, int bot_mode)
     struct timeval           timeout;
     int                      my_score = 0;
     int                      pass = 0;
-    int                      ping = 10;
+    int                      ping = 1;
 
     my_cards = malloc(MAX_CARDS_CLIENT * sizeof(struct card));
 
@@ -175,7 +175,7 @@ int client(int mode, int bot_mode)
             break;
         if (msg == CLIENT_NONE && ping < 0)
         {
-            ping = 10;
+            ping = 1;
             msg = send_to_server(sd, &msg, (struct sockaddr*)&saddr, addr_size);
         }
         if (msg != CLIENT_NONE)
@@ -212,7 +212,7 @@ int client(int mode, int bot_mode)
                 msg = CLIENT_LOSE;
             if (response.type == SERVER_LOSE)
                 msg = CLIENT_WIN;
-            if (response.type == SERVER_CL_EXT)
+            if (response.type == SERVER_CL_EXT || response.type == SERVER_ERROR_EXT)
                 msg = CLIENT_INT;
 
             if (msg == CLIENT_INT)

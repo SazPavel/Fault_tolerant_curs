@@ -180,6 +180,17 @@ void* subserver(void *serv_index_ptr)
                 // if received LOSE or WIN
                 // then it must be sent to all clients
                 pass_flag = 0;
+
+                if (msg >= CLIENT_MAX || msg == CLIENT_ERROR)
+                {
+                    pthread_mutex_lock(&stat_lock);
+                    answer.type = SERVER_ERROR_EXT;
+                    serv[ind^1].breaking_news = serv[ind].breaking_news = 1;
+                    serv[ind^1].xmsg = serv[ind].xmsg = SERVER_ERROR_EXT;
+                    send_extra_message(ind, &answer);
+                    pthread_mutex_unlock(&stat_lock);
+                    break;
+                }
                 if (msg == CLIENT_LOSE || msg == CLIENT_WIN) {
                     pthread_mutex_lock(&stat_lock);
                     serv[ind^1].breaking_news = 1;

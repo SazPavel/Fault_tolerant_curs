@@ -60,6 +60,7 @@
 #define CLIENT_INT                     6
 #define CLIENT_NONE                    7
 #define CLIENT_READY                   8
+#define CLIENT_MAX                     9
 // commands from server to client
 #define SERVER_ERROR                  -1
 #define SERVER_NONE                    0
@@ -67,6 +68,7 @@
 #define SERVER_WIN                     2
 #define SERVER_LOSE                    3
 #define SERVER_CL_EXT                  4
+#define SERVER_ERROR_EXT               5
 // server states
 #define SS_FREE                        0
 #define SS_BUSY                        1
